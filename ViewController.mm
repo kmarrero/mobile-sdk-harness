@@ -38,8 +38,7 @@
 #include "EffectHandler.h"
 #include "LatLongAltitude.h"
 #include "CameraModel.h"
-#include "IAppOnMap.h"
-#include "EegeoWorld.h"
+#include "AppOnMap.h"
 #include "Blitter.h"
 #include "GLState.h"
 #include "RenderContext.h"
@@ -64,7 +63,7 @@
 #include "iOSAlertBoxFactory.h"
 #include "NativeUIFactories.h"
 
-#define API_KEY "OBTAIN API KEY FROM https://appstore.eegeo.com AND INSERT IT HERE"
+#define API_KEY "39a41330b20a251258f1906f0175ee39"
 
 //#define USING_SEARCH_EXAMPLE
 
@@ -79,10 +78,9 @@ Eegeo::Search::Service::SearchServiceCredentials* pCredentials = &credentials;
 Eegeo::Search::Service::SearchServiceCredentials* pCredentials = NULL;
 #endif
 
+AppOnMap* g_pMyApp = NULL;
 
 using namespace Eegeo::iOS;
-
-iOSUrlEncoder iOSUrlEncoder;
 
 @interface ViewController()
 {
@@ -121,6 +119,7 @@ CFTimeInterval avgFpsStartTime = CFAbsoluteTimeGetCurrent();
 @synthesize precacheVolume;
 @synthesize precacheVolumeProgress;
 @synthesize streamingEnabled;
+@synthesize nextExample;
 
 //debug places
 @synthesize places;
@@ -176,16 +175,7 @@ std::vector<Eegeo::Streaming::LoggingResourceStream*> streams;
 DebuggedResource::ResourceType currentDebuggedResource = DebuggedResource::None;
 UIButton* currentDebuggedResourceButton = NULL;
 NSTimer* touchTimer;
-Eegeo::Location::GlobeCameraInterestPointProvider* m_pInterestPointProvider;
-iOSLocationService* piOSLocationService = NULL;
-Eegeo::Resources::Terrain::Heights::TerrainHeightRepository m_terrainHeightRepository;
-Eegeo::Resources::Terrain::Heights::TerrainHeightProvider m_terrainHeightProvider(&m_terrainHeightRepository);
 Eegeo::Weather::CurrentWeatherModel currentWeatherModel;
-
-Eegeo::UI::NativeInput::iOS::iOSInputBoxFactory inputBoxFactory;
-Eegeo::UI::NativeInput::iOS::iOSKeyboardInputFactory keyboardInputFactory;
-Eegeo::UI::NativeAlerts::iOS::iOSAlertBoxFactory alertBoxFactory;
-Eegeo::UI::NativeUIFactories nativeUIFactories(alertBoxFactory, inputBoxFactory, keyboardInputFactory);
 
 // ---------------------------------------------------------------------------------------------------------------------------
 // ---------------------------------------------------------------------------------------------------------------------------
@@ -244,7 +234,7 @@ Eegeo::UI::NativeUIFactories nativeUIFactories(alertBoxFactory, inputBoxFactory,
     
     // Update the game.
     myApp->Update(frameDuration);
-    currentWeatherModel.SetWeatherType(myApp->World().GetWeatherController().GetWeatherType());
+    currentWeatherModel.SetWeatherType(myApp->GetWeatherController().GetWeatherType());
     
     self.preferredFramesPerSecond = 60.0f;
     //////////
@@ -256,7 +246,7 @@ Eegeo::UI::NativeUIFactories nativeUIFactories(alertBoxFactory, inputBoxFactory,
     
     if(precaching)
     {
-        const Eegeo::Web::PrecacheService& precachingService = myApp->World().GetPrecachingService();
+        const Eegeo::Web::PrecacheService& precachingService = myApp->GetPrecachingService();
         [precacheVolumeProgress setProgress: (precachingService.UrlsLoaded()/(float)precachingService.TotalUrlsToLoad())];
         if(!precachingService.CurrentlyPrecaching())
         {
@@ -299,21 +289,21 @@ Eegeo::UI::NativeUIFactories nativeUIFactories(alertBoxFactory, inputBoxFactory,
     mem.text = [NSString stringWithUTF8String:ss_mem.str().c_str()];
     
     std::stringstream ss_terrains;
-    Eegeo::Resources::MeshPool<Eegeo::Rendering::RenderableItem*>& terrainPool = myApp->World().GetTerrainMeshPool();
+    Eegeo::Resources::MeshPool<Eegeo::Rendering::RenderableItem*>& terrainPool = myApp->GetTerrainMeshPool();
     ss_terrains << "Terrains:: " << terrainPool.GetCount() << "/" <<  terrainPool.GetCapacity();
     terrains.text = [NSString stringWithUTF8String:ss_terrains.str().c_str()];
     
     std::stringstream ss_buildings;
-    Eegeo::Resources::MeshPool<Eegeo::Rendering::RenderableItem*>& buildingPool = myApp->World().GetBuildingMeshPool();
+    Eegeo::Resources::MeshPool<Eegeo::Rendering::RenderableItem*>& buildingPool = myApp->GetBuildingMeshPool();
     ss_buildings << "Buildings:: " << buildingPool.GetCount() << "/" <<  buildingPool.GetCapacity();
     buildings.text = [NSString stringWithUTF8String:ss_buildings.str().c_str()];
     
-    float meanTimeWaitingToBeQueuedHttp = myApp->World().GetPayloadPool().stateTimeStats(Eegeo::PayloadState::TO_BE_LOADED, false)->mean();
-    float meanTimeQueuedForLoadingHttp = myApp->World().GetPayloadPool().stateTimeStats(Eegeo::PayloadState::QUEUED_FOR_LOADING, false)->mean();
-    float meanTimeToLoadHttp = myApp->World().GetPayloadPool().stateTimeStats(Eegeo::PayloadState::LOADING, false)->mean();
-    float meanTimeWaitingToBeQueuedCache = myApp->World().GetPayloadPool().stateTimeStats(Eegeo::PayloadState::TO_BE_LOADED, true)->mean();
-    float meanTimeQueuedForLoadingCache = myApp->World().GetPayloadPool().stateTimeStats(Eegeo::PayloadState::QUEUED_FOR_LOADING, true)->mean();
-    float meanTimeToLoadCache = myApp->World().GetPayloadPool().stateTimeStats(Eegeo::PayloadState::LOADING, true)->mean();
+    float meanTimeWaitingToBeQueuedHttp = myApp->GetPayloadPool().stateTimeStats(Eegeo::PayloadState::TO_BE_LOADED, false)->mean();
+    float meanTimeQueuedForLoadingHttp = myApp->GetPayloadPool().stateTimeStats(Eegeo::PayloadState::QUEUED_FOR_LOADING, false)->mean();
+    float meanTimeToLoadHttp = myApp->GetPayloadPool().stateTimeStats(Eegeo::PayloadState::LOADING, false)->mean();
+    float meanTimeWaitingToBeQueuedCache = myApp->GetPayloadPool().stateTimeStats(Eegeo::PayloadState::TO_BE_LOADED, true)->mean();
+    float meanTimeQueuedForLoadingCache = myApp->GetPayloadPool().stateTimeStats(Eegeo::PayloadState::QUEUED_FOR_LOADING, true)->mean();
+    float meanTimeToLoadCache = myApp->GetPayloadPool().stateTimeStats(Eegeo::PayloadState::LOADING, true)->mean();
     
     std::stringstream ss_payloads;
     ss_payloads << "Payloads:: "
@@ -330,12 +320,12 @@ Eegeo::UI::NativeUIFactories nativeUIFactories(alertBoxFactory, inputBoxFactory,
     ;
     payloads.text = [NSString stringWithUTF8String:ss_payloads.str().c_str()];
     
-    float rot = myApp->pGlobeCamera->CurrentRotationRadians();
+    float rot = GetGlobeCamera().CurrentRotationRadians();
     rot = fmodf(Eegeo::Math::Rad2Deg(rot), 360.0f);
     if(rot < 0.0f) rot = 360.0f + rot;
     
-    Eegeo::Space::LatLongAltitude interestPoint = Eegeo::Space::LatLongAltitude::FromECEF(myApp->pGlobeCamera->GetInterestPointECEF());
-    Eegeo::Space::LatLongAltitude eyePoint = Eegeo::Space::LatLongAltitude::FromECEF(myApp->World().GetCameraModel().GetWorldPosition());
+    Eegeo::Space::LatLongAltitude interestPoint = Eegeo::Space::LatLongAltitude::FromECEF(GetGlobeCamera().GetInterestPointECEF());
+    Eegeo::Space::LatLongAltitude eyePoint = Eegeo::Space::LatLongAltitude::FromECEF(myApp->GetCameraModel().GetWorldPosition());
     char cameraParams[200];
     sprintf (
              cameraParams,
@@ -360,33 +350,37 @@ Eegeo::UI::NativeUIFactories nativeUIFactories(alertBoxFactory, inputBoxFactory,
 }
 
 -(void)wireframeBuildingsToggleButtonPressedHandler {
-    Eegeo::EegeoEnvironmentRendering& rendering = myApp->World().GetEnvironmentRendering();
+    Eegeo::EegeoEnvironmentRendering& rendering = myApp->GetEnvironmentRendering();
     Eegeo::Rendering::MaterialRepository<Eegeo::Rendering::Material>& materials = *rendering.Materials();
     Eegeo::Rendering::StencilShadowMaterial& shadow = ((Eegeo::Rendering::StencilShadowMaterial&)*materials.GetMaterial("stencil_shadow"));
     shadow.ToggleWireframe();
 }
 
+-(void)nextExampleButtonPressedHandler {
+    myApp->UpdateExample();
+}
+
 -(void)streamingToggleButtonPressedHandler {
-    Eegeo::Streaming::StreamingController& streaming = myApp->World().GetStreamingController();
+    Eegeo::Streaming::StreamingController& streaming = myApp->GetStreamingController();
     streaming.SetEnabled(!streaming.Enabled());
 }
 
 -(void)toggleCollapseButtonPressedHandler {
-    myApp->World().GetEnvironmentFlatteningService().ToggleFlattened();
+    myApp->GetEnvironmentFlatteningService().ToggleFlattened();
 }
 
 -(void)resetCountersButtonPressedHandler {
-    myApp->World().GetBuildingBuilder().ResetCounters();
-    myApp->World().GetLcmTerrainBuilder().ResetCounters();
-    myApp->World().GetPlaceNamesBuilder().ResetCounters();
-    myApp->World().GetRoadBuilder().ResetCounters();
+    myApp->GetBuildingBuilder().ResetCounters();
+    myApp->GetLcmTerrainBuilder().ResetCounters();
+    myApp->GetPlaceNamesBuilder().ResetCounters();
+    myApp->GetRoadBuilder().ResetCounters();
     
     for(std::vector<Eegeo::Streaming::LoggingResourceStream*>::iterator it = streams.begin(); it != streams.end(); ++ it)
     {
         (*it)->ResetCounters();
     }
     
-    myApp->World().GetPayloadPool().ResetStats();
+    myApp->GetPayloadPool().ResetStats();
     framesForAvgFps = 0;
     avgFpsStartTime = CFAbsoluteTimeGetCurrent();
 }
@@ -498,8 +492,16 @@ Eegeo::UI::NativeUIFactories nativeUIFactories(alertBoxFactory, inputBoxFactory,
     view.drawableMultisample = multiSample;
     
     [EAGLContext setCurrentContext: view.context];
-    
-	// Get the pixel scale to account for retina displays...
+}
+
+
+Eegeo::Camera::NewGlobeCamera& GetGlobeCamera()
+{
+    return (g_pMyApp->GetGlobeCamera());
+}
+
+- (void) initWorld
+{
 	UIScreen* screen = [UIScreen mainScreen];
 	if ([screen respondsToSelector: @selector(scale)])
 	{
@@ -509,6 +511,8 @@ Eegeo::UI::NativeUIFactories nativeUIFactories(alertBoxFactory, inputBoxFactory,
 	{
 		pixelScale = 1.f;
 	}
+    
+    GLKView* view = (GLKView*)((UIViewController*)self).view;
     
     float width 		= view.bounds.size.width * pixelScale;
     float height 		= view.bounds.size.height * pixelScale;
@@ -521,73 +525,10 @@ Eegeo::UI::NativeUIFactories nativeUIFactories(alertBoxFactory, inputBoxFactory,
         height = temp;
     }
     
-    m_renderContext = new Eegeo::Rendering::RenderContext();
-    m_renderContext->SetScreenDimensions(width, height, pixelScale);
-}
-
-- (void) initWorld
-{
-    Eegeo::EffectHandler::Initialise();
-    Eegeo::RenderCamera* pRenderCamera = new Eegeo::RenderCamera();
-    Eegeo::Camera::CameraModel*  pCameraModel = new Eegeo::Camera::CameraModel(pRenderCamera);
-    Eegeo::Camera::NewGlobeCamera* cameraController = new Eegeo::Camera::NewGlobeCamera(pCameraModel, pRenderCamera, m_terrainHeightProvider);
-    
-    piOSLocationService = new iOSLocationService;
-
-    myApp = new ::MyApp(cameraController);
-    
-    pRenderCamera->SetViewport(0.f, 0.f, m_renderContext->GetScreenWidth(), m_renderContext->GetScreenHeight());
-    
-    m_pBlitter = new Eegeo::Blitter(1024 * 128, 1024 * 64, 1024 * 32, *m_renderContext);
-    m_pBlitter->Initialise();
-    
-    Eegeo::Lighting::GlobalLighting* pLighting = new Eegeo::Lighting::GlobalLighting();
-    Eegeo::Lighting::GlobalFogging* pFogging = new Eegeo::Lighting::GlobalFogging();
-    
-    iOSFileIO* p_iOSFileIO = new iOSFileIO();
-    Eegeo::Helpers::IFileIO* pFileIO = p_iOSFileIO;
-    Eegeo::Helpers::ITextureFileLoader* pTextureFileLoader = new iOSTextureFileLoader(p_iOSFileIO, m_renderContext->GetGLState());
-    iOSHttpCache* p_iOSHttpCache = new iOSHttpCache(*p_iOSFileIO);
-    Eegeo::Helpers::IHttpCache* pHttpCache = p_iOSHttpCache;
-    Eegeo::Web::IWebLoadRequestFactory* pPayloadRequestFactory = new Eegeo::Web::iOSWebLoadRequestFactory(*p_iOSHttpCache);
-    Eegeo::Helpers::ITaskQueue* pTaskQueue = new iOSTaskQueue(10);
-    
-    Eegeo::Rendering::DefaultMaterialFactory* pMaterialFactory = new Eegeo::Rendering::DefaultMaterialFactory();
-    pMaterialFactory->Initialise(&currentWeatherModel, m_renderContext, pLighting, pFogging, m_pBlitter, pFileIO, pTextureFileLoader);
-    
-    Eegeo::Traffic::VehicleModelRepository* pVehicleModelRepository = new Eegeo::Traffic::VehicleModelRepository;
-    Eegeo::Traffic::VehicleModelLoader* pVehicleModelLoader = new Eegeo::Traffic::VehicleModelLoader(m_renderContext->GetGLState(),
-                                                                                                     *pTextureFileLoader,
-                                                                                                     *pFileIO);
-   
-    Eegeo::Traffic::VehicleModelLoaderHelper::LoadAllVehicleResourcesIntoRepository(*pVehicleModelLoader, *pVehicleModelRepository);
-    
-    m_pInterestPointProvider = Eegeo_NEW(Eegeo::Location::GlobeCameraInterestPointProvider(*cameraController));
-    
-    myApp->Start(new Eegeo::EegeoWorld(API_KEY,
-                                       pHttpCache,
-                                       pFileIO,
-                                       pTextureFileLoader,
-                                       pPayloadRequestFactory,
-                                       pTaskQueue,
-                                       pVehicleModelRepository,
-                                       *m_renderContext,
-                                       pCameraModel,
-                                       cameraController,
-                                       pLighting,
-                                       pFogging,
-                                       pMaterialFactory,
-                                       piOSLocationService,
-                                       m_pBlitter,
-                                       &iOSUrlEncoder,
-                                       *m_pInterestPointProvider,
-                                       nativeUIFactories,
-                                       &m_terrainHeightRepository,
-                                       &m_terrainHeightProvider,
-                                       pCredentials
-                                       ));
-    
-    m_renderContext->GetGLState().InvalidateAll();
+    AppConfiguration config = AppConfiguration::CreateDefaultAppConfiguration(width, height, pixelScale, App::IsDeviceMultiCore(), API_KEY);
+    config.pSearchCredentials = pCredentials;
+    myApp = new AppOnMap(config);
+    g_pMyApp = myApp;
 }
 
 - (void) initHUD
@@ -607,6 +548,10 @@ Eegeo::UI::NativeUIFactories nativeUIFactories(alertBoxFactory, inputBoxFactory,
     
     [streamingEnabled setTitle:@"Toggle Streaming" forState:UIControlStateNormal];
     [streamingEnabled addTarget:self action:@selector(streamingToggleButtonPressedHandler) forControlEvents:UIControlEventTouchUpInside];
+    
+    [nextExample setTitle:@"Next Example" forState:UIControlStateNormal];
+    [nextExample addTarget:self action:@selector(nextExampleButtonPressedHandler) forControlEvents:UIControlEventTouchUpInside];
+    [nextExample setHidden:YES];
     
     [debug setTitle:@"Debug!" forState:UIControlStateNormal];
     [debug addTarget:self action:@selector(debugControlsToggleButtonPressedHandler) forControlEvents:UIControlEventTouchUpInside];
@@ -644,10 +589,10 @@ Eegeo::UI::NativeUIFactories nativeUIFactories(alertBoxFactory, inputBoxFactory,
     [resBtnShadows addTarget:self action:@selector(toggleShadowsResourceDebugInfo) forControlEvents:UIControlEventTouchUpInside];
     
     streams.resize(DebuggedResource::NumResources);
-    streams[DebuggedResource::Buildings] = (&myApp->World().GetBuildingStreaming());
-    streams[DebuggedResource::Terrain] = (&myApp->World().GetTerrainStreaming());
-    streams[DebuggedResource::Placenames] = (&myApp->World().GetPlaceNamesStreaming());
-    streams[DebuggedResource::Roads] = (&myApp->World().GetRoadStreaming());
+    streams[DebuggedResource::Buildings] = (&myApp->GetBuildingStreaming());
+    streams[DebuggedResource::Terrain] = (&myApp->GetTerrainStreaming());
+    streams[DebuggedResource::Placenames] = (&myApp->GetPlaceNamesStreaming());
+    streams[DebuggedResource::Roads] = (&myApp->GetRoadStreaming());
 }
 
 -(void)debugControlsToggleButtonPressedHandler {
@@ -698,15 +643,15 @@ Eegeo::UI::NativeUIFactories nativeUIFactories(alertBoxFactory, inputBoxFactory,
 	
     if (recognizer.state == UIGestureRecognizerStateBegan)
     {
-        myApp->Event_TouchRotate_Start (data);
+        GetGlobeCamera().Event_TouchRotate_Start (data);
     }
     else if (recognizer.state == UIGestureRecognizerStateChanged)
     {
-        myApp->Event_TouchRotate (data);
+        GetGlobeCamera().Event_TouchRotate (data);
     }
     else if (recognizer.state == UIGestureRecognizerStateEnded)
     {
-        myApp->Event_TouchRotate_End (data);
+        GetGlobeCamera().Event_TouchRotate_End (data);
     }
     
 }
@@ -753,21 +698,21 @@ Eegeo::UI::NativeUIFactories nativeUIFactories(alertBoxFactory, inputBoxFactory,
         _previousDist = dist;
 		
 		data.scale	= 0.0f;
-        myApp->Event_TouchPinch_Start(data);
+        GetGlobeCamera().Event_TouchPinch_Start(data);
         
     }
     else if (recognizer.state == UIGestureRecognizerStateChanged)
     {
         float delta = (_previousDist-dist);
-        float majorScreenDimension = fmaxf(m_renderContext->GetScreenHeight(), m_renderContext->GetScreenWidth());
+        float majorScreenDimension = fmaxf(myApp->GetRenderContext().GetScreenHeight(), myApp->GetRenderContext().GetScreenWidth());
 		data.scale = delta/majorScreenDimension;
-        myApp->Event_TouchPinch (data);
+        GetGlobeCamera().Event_TouchPinch (data);
         _previousDist = dist;
     }
     else if (recognizer.state == UIGestureRecognizerStateEnded)
     {
 		data.scale	= recognizer.scale;
-        myApp->Event_TouchPinch_End (data);
+        GetGlobeCamera().Event_TouchPinch_End (data);
     }
     
     _previousDist = dist;
@@ -787,22 +732,22 @@ Eegeo::UI::NativeUIFactories nativeUIFactories(alertBoxFactory, inputBoxFactory,
 	AppInterface::PanData data;
 	
 	data.pointRelative	= *(Eegeo::v2*)&position;
-    float majorScreenDimension = fmaxf(m_renderContext->GetScreenHeight(), m_renderContext->GetScreenWidth());
+    float majorScreenDimension = fmaxf(myApp->GetRenderContext().GetScreenHeight(), myApp->GetRenderContext().GetScreenWidth());
     data.pointRelativeNormalized = (data.pointRelative)/majorScreenDimension;
 	data.pointAbsolute	= *(Eegeo::v2*)&positionAbs;
 	data.velocity	= *(Eegeo::v2*)&velocity;
 	
     if (recognizer.state == UIGestureRecognizerStateBegan)
     {
-        myApp->Event_TouchPan_Start (data);
+        GetGlobeCamera().Event_TouchPan_Start (data);
     }
     else if (recognizer.state == UIGestureRecognizerStateChanged)
     {
-        myApp->Event_TouchPan (data);
+        GetGlobeCamera().Event_TouchPan (data);
     }
     else if (recognizer.state == UIGestureRecognizerStateEnded)
     {
-        myApp->Event_TouchPan_End (data);
+        GetGlobeCamera().Event_TouchPan_End (data);
     }
 }
 
@@ -822,7 +767,7 @@ Eegeo::UI::NativeUIFactories nativeUIFactories(alertBoxFactory, inputBoxFactory,
 		
 		data.point	= *(Eegeo::v2*)&position;
         
-        myApp->Event_TouchTap (data);
+        GetGlobeCamera().Event_TouchTap (data);
         
     }
 }
@@ -843,7 +788,7 @@ Eegeo::UI::NativeUIFactories nativeUIFactories(alertBoxFactory, inputBoxFactory,
 		
 		data.point	= *(Eegeo::v2*)&position;
         
-        myApp->Event_TouchDoubleTap (data);
+        GetGlobeCamera().Event_TouchDoubleTap (data);
         
     }
 }
@@ -892,7 +837,7 @@ Eegeo::UI::NativeUIFactories nativeUIFactories(alertBoxFactory, inputBoxFactory,
 		AppInterface::TouchData data;
 		data.point	= *(Eegeo::v2*)&position;
         
-        myApp->Event_TouchDown (data);
+        GetGlobeCamera().Event_TouchDown (data);
     }
 }
 
@@ -912,7 +857,7 @@ Eegeo::UI::NativeUIFactories nativeUIFactories(alertBoxFactory, inputBoxFactory,
 		AppInterface::TouchData data;
 		data.point	= *(Eegeo::v2*)&position;
         
-        myApp->Event_TouchMove (data);
+        GetGlobeCamera().Event_TouchMove (data);
     }
 }
 
@@ -932,7 +877,7 @@ Eegeo::UI::NativeUIFactories nativeUIFactories(alertBoxFactory, inputBoxFactory,
 		AppInterface::TouchData data;
 		data.point	= *(Eegeo::v2*)&position;
         
-        myApp->Event_TouchUp (data);
+        GetGlobeCamera().Event_TouchUp (data);
     }
     
 }
@@ -955,81 +900,81 @@ Eegeo::UI::NativeUIFactories nativeUIFactories(alertBoxFactory, inputBoxFactory,
 
 
 -(void)beginPrecacheVolume {
-    Eegeo::Streaming::IStreamingVolume& volume = myApp->World().GetStreamingVolume();
-    myApp->World().GetPrecachingService().Precache(volume);
+    Eegeo::Streaming::IStreamingVolume& volume = myApp->GetStreamingVolume();
+    myApp->GetPrecachingService().Precache(volume);
     precaching = true;
     [precacheVolume setEnabled: false];
     [precacheVolume setAlpha: 0.6f];
 }
 
 -(void)goToSf {
-    myApp->pGlobeCamera->SetInterestHeadingDistance(Eegeo::Space::LatLongAltitude(37.7858,-122.401, 0, Eegeo::Space::LatLongUnits::Degrees),
+    GetGlobeCamera().SetInterestHeadingDistance(Eegeo::Space::LatLongAltitude(37.7858,-122.401, 0, Eegeo::Space::LatLongUnits::Degrees),
                                                     0.0f,
                                                     1781.0f);
 }
 
 -(void)goToLdn {
-    myApp->pGlobeCamera->SetInterestHeadingDistance(Eegeo::Space::LatLongAltitude(51.506172,-0.118915, 0, Eegeo::Space::LatLongUnits::Degrees),
+    GetGlobeCamera().SetInterestHeadingDistance(Eegeo::Space::LatLongAltitude(51.506172,-0.118915, 0, Eegeo::Space::LatLongUnits::Degrees),
                                                     351.0f,
                                                     2731.0f);
 }
 
 -(void)goToSanDiego {
-    myApp->pGlobeCamera->SetInterestHeadingDistance(Eegeo::Space::LatLongAltitude(32.707806,-117.167137, 0, Eegeo::Space::LatLongUnits::Degrees),
+    GetGlobeCamera().SetInterestHeadingDistance(Eegeo::Space::LatLongAltitude(32.707806,-117.167137, 0, Eegeo::Space::LatLongUnits::Degrees),
                                                     25.0f,
                                                     2000.0f);
 }
 
 -(void)goToNy {
-    myApp->pGlobeCamera->SetInterestHeadingDistance(Eegeo::Space::LatLongAltitude(40.703762, -74.013733, 0, Eegeo::Space::LatLongUnits::Degrees),
+    GetGlobeCamera().SetInterestHeadingDistance(Eegeo::Space::LatLongAltitude(40.703762, -74.013733, 0, Eegeo::Space::LatLongUnits::Degrees),
                                                     240.0f,
                                                     1800.0f);
 }
 
 -(void)goToChicago {
-    myApp->pGlobeCamera->SetInterestHeadingDistance(Eegeo::Space::LatLongAltitude(41.873651,-87.629906, 0, Eegeo::Space::LatLongUnits::Degrees),
+    GetGlobeCamera().SetInterestHeadingDistance(Eegeo::Space::LatLongAltitude(41.873651,-87.629906, 0, Eegeo::Space::LatLongUnits::Degrees),
                                                     0.0f,
                                                     1000.0f);
 }
 
 -(void)goToLa {
-    myApp->pGlobeCamera->SetInterestHeadingDistance(Eegeo::Space::LatLongAltitude(34.050175,-118.260048, 0, Eegeo::Space::LatLongUnits::Degrees),
+    GetGlobeCamera().SetInterestHeadingDistance(Eegeo::Space::LatLongAltitude(34.050175,-118.260048, 0, Eegeo::Space::LatLongUnits::Degrees),
                                                     0.0f,
                                                     1800.0f);
 }
 
 -(void)goToEdinburgh {
-    myApp->pGlobeCamera->SetInterestHeadingDistance(Eegeo::Space::LatLongAltitude(55.961559,-3.209940, 0, Eegeo::Space::LatLongUnits::Degrees),
+    GetGlobeCamera().SetInterestHeadingDistance(Eegeo::Space::LatLongAltitude(55.961559,-3.209940, 0, Eegeo::Space::LatLongUnits::Degrees),
                                                     77.0f,
                                                     1700.0f);
 }
 
 -(void)goToGlasgow {
-    myApp->pGlobeCamera->SetInterestHeadingDistance(Eegeo::Space::LatLongAltitude(55.865242,-4.288697, 0, Eegeo::Space::LatLongUnits::Degrees),
+    GetGlobeCamera().SetInterestHeadingDistance(Eegeo::Space::LatLongAltitude(55.865242,-4.288697, 0, Eegeo::Space::LatLongUnits::Degrees),
                                                     224.0f,
                                                     2320.0f);
 }
 
 -(void)goToCambridge {
-    myApp->pGlobeCamera->SetInterestHeadingDistance(Eegeo::Space::LatLongAltitude(52.201092,0.118611, 0, Eegeo::Space::LatLongUnits::Degrees),
+    GetGlobeCamera().SetInterestHeadingDistance(Eegeo::Space::LatLongAltitude(52.201092,0.118611, 0, Eegeo::Space::LatLongUnits::Degrees),
                                                     319.0f,
                                                     1600.0f);
 }
 
 -(void)goToOban {
-    myApp->pGlobeCamera->SetInterestHeadingDistance(Eegeo::Space::LatLongAltitude(56.416794,-5.486794, 0, Eegeo::Space::LatLongUnits::Degrees),
+    GetGlobeCamera().SetInterestHeadingDistance(Eegeo::Space::LatLongAltitude(56.416794,-5.486794, 0, Eegeo::Space::LatLongUnits::Degrees),
                                                     114.0f,
                                                     3000.0f);
 }
 
 -(void)goToBarcelona {
-    myApp->pGlobeCamera->SetInterestHeadingDistance(Eegeo::Space::LatLongAltitude(41.382476,2.17804, 0, Eegeo::Space::LatLongUnits::Degrees),
+    GetGlobeCamera().SetInterestHeadingDistance(Eegeo::Space::LatLongAltitude(41.382476,2.17804, 0, Eegeo::Space::LatLongUnits::Degrees),
                                                     114.0f,
                                                     3000.0f);
 }
 
 -(void)goToKyoto {
-    myApp->pGlobeCamera->SetInterestHeadingDistance(Eegeo::Space::LatLongAltitude(34.9977166,135.755402, 0, Eegeo::Space::LatLongUnits::Degrees),
+    GetGlobeCamera().SetInterestHeadingDistance(Eegeo::Space::LatLongAltitude(34.9977166,135.755402, 0, Eegeo::Space::LatLongUnits::Degrees),
                                                     0.0f,
                                                     1500.0f);
 }
@@ -1266,23 +1211,23 @@ Eegeo::UI::NativeUIFactories nativeUIFactories(alertBoxFactory, inputBoxFactory,
     {
         case DebuggedResource::Buildings:
         {
-            ss << myApp->World().GetBuildingBuilder().AvgTimeTakenMs()
-            << " ms for " << myApp->World().GetBuildingBuilder().NumBuilds() << " builds";
+            ss << myApp->GetBuildingBuilder().AvgTimeTakenMs()
+            << " ms for " << myApp->GetBuildingBuilder().NumBuilds() << " builds";
         }break;
         case DebuggedResource::Terrain:
-            ss << "LCM: " << myApp->World().GetLcmTerrainBuilder().AvgTimeTakenMs()
-            << " ms for " << myApp->World().GetLcmTerrainBuilder().NumBuilds() << " builds";
+            ss << "LCM: " << myApp->GetLcmTerrainBuilder().AvgTimeTakenMs()
+            << " ms for " << myApp->GetLcmTerrainBuilder().NumBuilds() << " builds";
         {
         }break;
        
         case DebuggedResource::Placenames:
-            ss << myApp->World().GetPlaceNamesBuilder().AvgTimeTakenMs()
-            << " ms for " << myApp->World().GetPlaceNamesBuilder().NumBuilds() << " builds";
+            ss << myApp->GetPlaceNamesBuilder().AvgTimeTakenMs()
+            << " ms for " << myApp->GetPlaceNamesBuilder().NumBuilds() << " builds";
         {
         }break;
         case DebuggedResource::Roads:
-            ss << myApp->World().GetRoadBuilder().AvgTimeTakenMs()
-            << " ms for " << myApp->World().GetRoadBuilder().NumBuilds() << " builds";
+            ss << myApp->GetRoadBuilder().AvgTimeTakenMs()
+            << " ms for " << myApp->GetRoadBuilder().NumBuilds() << " builds";
         {
         }break;
         default: break;
@@ -1304,10 +1249,16 @@ Eegeo::UI::NativeUIFactories nativeUIFactories(alertBoxFactory, inputBoxFactory,
 	}
 }
 
+#include "iOSLocationService.h"
+
+iOSLocationService& GetLocationService(AppOnMap* myApp)
+{
+    return (iOSLocationService&)(myApp->GetLocationService());
+}
 
 - (void)locationManager:(CLLocationManager *)manager didFailWithError:(NSError *)error
 {
-    piOSLocationService->FailedToGetLocation();
+    GetLocationService(myApp).FailedToGetLocation();
 }
 
 - (void)locationManager:(CLLocationManager *)manager didUpdateToLocation:(CLLocation *)newLocation fromLocation:(CLLocation *)oldLocation
@@ -1320,12 +1271,12 @@ Eegeo::UI::NativeUIFactories nativeUIFactories(alertBoxFactory, inputBoxFactory,
         double lonDegrees = currentLocation.coordinate.longitude;
         double altitudeMeters = currentLocation.altitude;
         double accuracyMeters = currentLocation.horizontalAccuracy;
-        piOSLocationService->UpdateLocation(latDegrees, lonDegrees, altitudeMeters);
-        piOSLocationService->UpdateHorizontalAccuracy(accuracyMeters);
+        GetLocationService(myApp).UpdateLocation(latDegrees, lonDegrees, altitudeMeters);
+        GetLocationService(myApp).UpdateHorizontalAccuracy(accuracyMeters);
     }
     else
     {
-        piOSLocationService->FailedToGetLocation();
+        GetLocationService(myApp).FailedToGetLocation();
     }
 }
 

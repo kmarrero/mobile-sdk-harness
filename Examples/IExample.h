@@ -1,8 +1,6 @@
 #ifndef __ExampleApp__Example__
 #define __ExampleApp__Example__
 
-#include "IAppOnMap.h"
-
 namespace Examples
 {
     class IExample

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="2.0" toolsVersion="2844" systemVersion="11E53" targetRuntime="iOS.CocoaTouch.iPad" propertyAccessControl="none" initialViewController="2">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="2.0" toolsVersion="3084" systemVersion="12D78" targetRuntime="iOS.CocoaTouch.iPad" propertyAccessControl="none" initialViewController="2">
     <dependencies>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="1930"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="2083"/>
     </dependencies>
     <scenes>
         <!--View Controller-->
@@ -132,6 +132,19 @@
                                     <color key="titleColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
                                 </state>
                             </button>
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" id="Pl6-0E-yA3">
+                                <rect key="frame" x="753" y="17" width="123" height="37"/>
+                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                                <accessibility key="accessibilityConfiguration" label=""/>
+                                <fontDescription key="fontDescription" type="boldSystem" pointSize="15"/>
+                                <state key="normal" title="Next Example">
+                                    <color key="titleColor" red="0.19607843459999999" green="0.30980393290000002" blue="0.52156865600000002" alpha="1" colorSpace="calibratedRGB"/>
+                                    <color key="titleShadowColor" white="0.5" alpha="1" colorSpace="calibratedWhite"/>
+                                </state>
+                                <state key="highlighted">
+                                    <color key="titleColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
+                                </state>
+                            </button>
                             <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" id="NjS-0G-qxx" userLabel="Button - SF">
                                 <rect key="frame" x="860" y="71" width="144" height="37"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
@@ -186,6 +199,7 @@
                         <outlet property="fps" destination="iLB-qe-tEc" id="QyO-a4-Zyy"/>
                         <outlet property="mem" destination="fJu-hR-BYa" id="EDl-m2-WHx"/>
                         <outlet property="models" destination="eqn-wY-hVV" id="ILa-gJ-Adl"/>
+                        <outlet property="nextExample" destination="Pl6-0E-yA3" id="IgB-xz-8E3"/>
                         <outlet property="ny" destination="Ys1-FL-ONF" id="8KI-aR-5dq"/>
                         <outlet property="payloads" destination="oeP-rE-zSm" id="jua-fa-xhs"/>
                         <outlet property="places" destination="GIF-ZH-2F0" id="OZT-nu-Lh6"/>
@@ -224,6 +238,7 @@
                 <relationship kind="outlet" name="ldn" candidateClass="UIButton"/>
                 <relationship kind="outlet" name="mem" candidateClass="UITextField"/>
                 <relationship kind="outlet" name="models" candidateClass="UITextField"/>
+                <relationship kind="outlet" name="nextExample" candidateClass="UIButton"/>
                 <relationship kind="outlet" name="ny" candidateClass="UIButton"/>
                 <relationship kind="outlet" name="oban" candidateClass="UIButton"/>
                 <relationship kind="outlet" name="payloads" candidateClass="UITextField"/>

@@ -7,10 +7,8 @@
 
 @interface ViewController : GLKViewController <UIGestureRecognizerDelegate, CLLocationManagerDelegate>{
 
-    MyApp * myApp;
+    AppOnMap * myApp;
     bool precaching;
-    Eegeo::Rendering::RenderContext* m_renderContext;
-    Eegeo::Blitter* m_pBlitter;
     
     UIRotationGestureRecognizer *gestureRotation;
     UIPinchGestureRecognizer *gesturePinch;
@@ -40,6 +38,7 @@
     IBOutlet UIButton* toggleCollapse;
     IBOutlet UIButton* streamingEnabled;
     IBOutlet UIButton* resetCounters;
+    IBOutlet UIButton* nextExample;
     
     //debug jump
     IBOutlet UIButton* places;
@@ -102,6 +101,7 @@
 @property (nonatomic, retain) IBOutlet UIButton* toggleCollapse;
 @property (nonatomic, retain) IBOutlet UIButton* resetCounters;
 @property (nonatomic, retain) IBOutlet UIButton* streamingEnabled;
+@property (nonatomic, retain) IBOutlet UIButton* nextExample;
 
 //debug places
 @property (nonatomic, retain) IBOutlet UIButton* places;

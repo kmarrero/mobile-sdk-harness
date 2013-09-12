@@ -135,11 +135,11 @@ AppOnMap::AppOnMap(AppConfiguration& configuration)
     m_renderContext = new Eegeo::Rendering::RenderContext();
     m_renderContext->SetScreenDimensions(configuration.width, configuration.height, configuration.pixelScale);
 
-    ConfigurePlatformDependentServices();
+    ConfigurePlatformDependentServices(configuration);
     
     m_pTerrainHeightRepository = Eegeo_NEW(Eegeo::Resources::Terrain::Heights::TerrainHeightRepository);
     m_pTerrainHeightProvider = Eegeo_NEW(Eegeo::Resources::Terrain::Heights::TerrainHeightProvider)(m_pTerrainHeightRepository);
-    
+
     const bool useLowDetailLods = !configuration.isMultiCore;
     Eegeo::EffectHandler::Initialise();
     Eegeo::RenderCamera* pRenderCamera = new Eegeo::RenderCamera();
@@ -150,13 +150,13 @@ AppOnMap::AppOnMap(AppConfiguration& configuration)
     m_pCameraController = cameraController;
     
     pRenderCamera->SetViewport(0.f, 0.f, m_renderContext->GetScreenWidth(), m_renderContext->GetScreenHeight());
-    
+
     m_pBlitter = new Eegeo::Blitter(1024 * 128, 1024 * 64, 1024 * 32, *m_renderContext);
     m_pBlitter->Initialise();
     
     m_pLighting = new Eegeo::Lighting::GlobalLighting();
     m_pFogging = new Eegeo::Lighting::GlobalFogging();
-    
+
     Eegeo::Rendering::DefaultMaterialFactory* pMaterialFactory = new Eegeo::Rendering::DefaultMaterialFactory();
     pMaterialFactory->Initialise(&m_currentWeatherTypeModel,
                                  m_renderContext,
@@ -166,18 +166,17 @@ AppOnMap::AppOnMap(AppConfiguration& configuration)
                                  m_pFileIO,
                                  m_pTextureLoader);
     m_pMaterialFactory = pMaterialFactory;
-    
+
     m_pVehicleModelRepository = new Eegeo::Traffic::VehicleModelRepository;
     Eegeo::Traffic::VehicleModelLoader vehicleModelLoader(m_renderContext->GetGLState(),
                                                           *m_pTextureLoader,
                                                           *m_pFileIO);
-    
+
     Eegeo::Traffic::VehicleModelLoaderHelper::LoadAllVehicleResourcesIntoRepository(vehicleModelLoader, *m_pVehicleModelRepository);
-    
+
     m_pInterestPointProvider = Eegeo_NEW(Eegeo::Location::GlobeCameraInterestPointProvider(*cameraController));
-    
+
     m_splashScreenFilename = configuration.splashScreenFileName;
-    
     
 #if defined EEGEO_NIGHTLY_BUILD_RESOURCES
     m_environmentResourceUrl = EEGEO_NIGHTLY_BUILD_RESOURCES;
@@ -238,6 +237,10 @@ AppOnMap::AppOnMap(AppConfiguration& configuration)
 
 AppOnMap::~AppOnMap()
 {
+    Eegeo::EffectHandler::Reset();
+    Eegeo::EffectHandler::Shutdown();
+    m_pBlitter->Shutdown();
+    
     Eegeo_DELETE m_pSearchService;
     
     for(std::vector<Eegeo::Streaming::LodStreamMap*>::iterator it = m_lodStreamMaps.begin(); it != m_lodStreamMaps.end(); ++it)
@@ -299,11 +302,11 @@ AppOnMap::~AppOnMap()
     
     Eegeo_DELETE m_pFont;
     Eegeo_DELETE m_pFontOutline;
-    
+
     Eegeo_DELETE m_pBuildingStream;
     Eegeo_DELETE m_pBuildingPool;
     Eegeo_DELETE m_pBuildingBuilder;
-    
+
     Eegeo_DELETE m_pTerrainStream;
     Eegeo_DELETE m_pLcmTerrainPool;
     Eegeo_DELETE m_pChunkedLcmTerrainBuilder;
@@ -313,11 +316,11 @@ AppOnMap::~AppOnMap()
     Eegeo_DELETE m_pItemRenderer;
     Eegeo_DELETE m_pEnvironmentFlatteningService;
     Eegeo_DELETE m_pGenericPooledRenderableItemFactory;
-    
+
     Eegeo_DELETE m_pPlaceNamesStream;
     Eegeo_DELETE m_pRoadNamesPool;
     Eegeo_DELETE m_pPlaceNamesBuilder;
-    
+
     for(std::vector<Eegeo::DebugRendering::SphereMesh*>::iterator it = m_spheres.begin(); it != m_spheres.end(); ++ it)
     {
         Eegeo_DELETE (*it);
@@ -346,7 +349,6 @@ AppOnMap::~AppOnMap()
     Eegeo_DELETE m_pFogging;
     Eegeo_DELETE m_pLocationService;
     Eegeo_DELETE m_pBlitter;
-    Eegeo_DELETE m_pHttpCache;
     Eegeo_DELETE m_pNativeInputFactories;
     Eegeo_DELETE m_pInterestPointProvider;
     Eegeo_DELETE m_pUrlEncoder;
@@ -355,7 +357,6 @@ AppOnMap::~AppOnMap()
     Eegeo_DELETE m_pTerrainHeightRepository;
     Eegeo_DELETE m_pTerrainHeightProvider;
     Eegeo_DELETE m_pVehicleModelRepository;
-    Eegeo_DELETE m_pCameraModel;
     
     m_spheres.clear();
 }
@@ -464,9 +465,9 @@ void AppOnMap::ConfigureEnvironmentResources(bool HACK_adjustTransportUvs, const
         Eegeo::EegeoEnvironmentRendering::TMaterialRepository& materialRepository = *m_rendering->Materials();
         
         Eegeo::Rendering::Material* placeholderMaterial = materialRepository.GetMaterial("pavement_01");
-        Eegeo::Rendering::ShortDiffuseTexturedMaterial* shortDiffuseTexturedMaterial = dynamic_cast<Eegeo::Rendering::ShortDiffuseTexturedMaterial*>(placeholderMaterial);
+
+        Eegeo::Rendering::ShortDiffuseTexturedMaterial* shortDiffuseTexturedMaterial = static_cast<Eegeo::Rendering::ShortDiffuseTexturedMaterial*>(placeholderMaterial);
         
-        Eegeo_ASSERT(shortDiffuseTexturedMaterial != NULL, "Cast to ShortDiffuseTexturedMaterial failed");
         uint placeholderTextureId = shortDiffuseTexturedMaterial->GetTextureId();
 
         m_pBuildingCustomTextureRepository =
@@ -1108,7 +1109,7 @@ void AppOnMap::UpdateExample()
 #include "iOSKeyboardInputFactory.h"
 #include "iOSAlertBoxFactory.h"
 
-void AppOnMap::ConfigurePlatformDependentServices()
+void AppOnMap::ConfigurePlatformDependentServices(AppConfiguration& configuration)
 {
     m_pLocationService = Eegeo_NEW(Eegeo::iOS::iOSLocationService);
     Eegeo::iOS::iOSFileIO* p_iOSFileIO = Eegeo_NEW(Eegeo::iOS::iOSFileIO);
@@ -1126,6 +1127,59 @@ void AppOnMap::ConfigurePlatformDependentServices()
     Eegeo::UI::NativeInput::iOS::iOSInputBoxFactory* inputBoxFactory = Eegeo_NEW(Eegeo::UI::NativeInput::iOS::iOSInputBoxFactory);
     Eegeo::UI::NativeInput::iOS::iOSKeyboardInputFactory* keyboardInputFactory = Eegeo_NEW(Eegeo::UI::NativeInput::iOS::iOSKeyboardInputFactory);
     Eegeo::UI::NativeAlerts::iOS::iOSAlertBoxFactory* alertBoxFactory = Eegeo_NEW(Eegeo::UI::NativeAlerts::iOS::iOSAlertBoxFactory);
+    m_pNativeInputFactories = Eegeo_NEW(Eegeo::UI::NativeUIFactories)(*alertBoxFactory, *inputBoxFactory, *keyboardInputFactory);
+}
+
+#elif defined(EEGEO_DROID)
+
+#include "AndroidUrlEncoder.h"
+#include "AndroidTaskQueue.h"
+#include "AndroidFileIO.h"
+#include "AndroidHttpCache.h"
+#include "AndroidTextureFileLoader.h"
+#include "AndroidWebLoadRequestFactory.h"
+#include "AndroidLocationService.h"
+#include "AndroidWebRequestService.hpp"
+#include "AndroidInputBoxFactory.h"
+#include "AndroidKeyboardInputFactory.h"
+#include "AndroidAlertBoxFactory.h"
+
+using namespace Eegeo::Android;
+using namespace Eegeo::UI::NativeInput::Android;
+void AppOnMap::ConfigurePlatformDependentServices(AppConfiguration& configuration)
+{
+	AndroidLocationService* pAndroidLocationService = new AndroidLocationService(configuration.pState);
+	m_pLocationService = pAndroidLocationService;
+
+	AndroidFileIO* pFileIO = new AndroidFileIO(configuration.pState);
+	m_pFileIO = pFileIO;
+
+	AndroidHttpCache* pHttpCache = new AndroidHttpCache(pFileIO, configuration.environmentResourcesUrl);  \
+	m_pHttpCache = pHttpCache;
+	AndroidTextureFileLoader* pTextureLoader = new AndroidTextureFileLoader(pFileIO, m_renderContext->GetGLState());
+	m_pTextureLoader = pTextureLoader;
+
+	AndroidTaskQueue* pTaskQueue = new AndroidTaskQueue(
+			10,
+			configuration.resourceBuildShareContext,
+			configuration.shareSurface,
+			configuration.display);
+	m_pTaskQueue = pTaskQueue;
+
+	m_pUrlEncoder = Eegeo_NEW(AndroidUrlEncoder)(configuration.pState);
+
+	Eegeo::Android::AndroidWebRequestService* pAndroidWebRequestService = new AndroidWebRequestService(*pFileIO, pHttpCache, pTaskQueue, 50);
+	configuration.pAndroidWebRequestService = pAndroidWebRequestService;
+
+	AndroidWebLoadRequestFactory* pAndroidWebLoadRequestFactory = new AndroidWebLoadRequestFactory(
+			pAndroidWebRequestService,
+			pHttpCache);
+	m_pWebLoadRequestFactory = pAndroidWebLoadRequestFactory;
+
+    Eegeo::UI::NativeInput::Android::AndroidInputBoxFactory* inputBoxFactory = Eegeo_NEW(Eegeo::UI::NativeInput::Android::AndroidInputBoxFactory)(configuration.pState);
+    Eegeo::Android::Input::IAndroidInputHandler& handler = (Eegeo::Android::Input::IAndroidInputHandler&)(*configuration.pInputHandler);
+    Eegeo::UI::NativeInput::Android::AndroidKeyboardInputFactory* keyboardInputFactory = Eegeo_NEW(Eegeo::UI::NativeInput::Android::AndroidKeyboardInputFactory)(configuration.pState, handler);
+    Eegeo::UI::NativeAlerts::Android::AndroidAlertBoxFactory* alertBoxFactory = Eegeo_NEW(Eegeo::UI::NativeAlerts::Android::AndroidAlertBoxFactory)(configuration.pState);
     m_pNativeInputFactories = Eegeo_NEW(Eegeo::UI::NativeUIFactories)(*alertBoxFactory, *inputBoxFactory, *keyboardInputFactory);
 }
 

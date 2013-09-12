@@ -371,7 +371,7 @@ private:
     void DrawAllPhases(float dt, Eegeo::Rendering::RenderHooks* pRenderHooks);
     void PostDraw(float dt);
     
-    void ConfigurePlatformDependentServices();
+    void ConfigurePlatformDependentServices(AppConfiguration& configuration);
     
 public:
     AppOnMap(AppConfiguration& config);
@@ -490,6 +490,15 @@ public:
     
 };
 
+#if defined(EEGEO_DROID)
+namespace Eegeo { namespace Android
+{
+class AndroidWebRequestService;
+namespace Input {
+	class AndroidInputHandler;
+}
+}}
+#endif
 
 struct AppConfiguration
 {
@@ -502,6 +511,15 @@ struct AppConfiguration
     std::string splashScreenFileName;
     std::string apiToken;
     Eegeo::Search::Service::SearchServiceCredentials* pSearchCredentials;
+
+#if defined(EEGEO_DROID)
+	struct android_app* pState;
+    EGLSurface shareSurface;
+    EGLContext display;
+    EGLContext resourceBuildShareContext;
+    Eegeo::Android::Input::AndroidInputHandler* pInputHandler;
+    Eegeo::Android::AndroidWebRequestService* pAndroidWebRequestService;
+#endif
     
     inline static AppConfiguration CreateDefaultAppConfiguration(float width,
                                                                  float height,
